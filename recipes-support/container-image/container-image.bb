@@ -5,6 +5,8 @@ LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://${COREBASE}/meta/COPYING.MIT;md5=3da9cfbcb788c80a0384361b4de20420"
 
 DOCKER_STORE = "${WORKDIR}/docker-store"
+DOCKER_PID = "/tmp/yocto-docker.pid"
+DOCKER_SOCKET = "/tmp/yocto-docker.sock"
 
 MANIFEST = "images.manifest"
 
@@ -22,33 +24,44 @@ SRC_URI = "file://container-image.service \
 do_pull_image[nostamp] = "1"
 do_pull_image[network] = "1"
 do_package_qa[noexec] = "1"
-INSANE_SKIP_${PN}:append = "already-stripped"
+INSANE_SKIP:${PN} += "already-stripped"
 EXCLUDE_FROM_SHLIBS = "1"
 
 do_pull_image() {
     [ -f "${WORKDIR}/${MANIFEST}" ] || bbfatal "${MANIFEST} does not exist"
 
-    [ -n "$(pidof dockerd)" ] && sudo kill "$(pidof dockerd)" && sleep 5
+    sudo rm -rf "${DOCKER_STORE}"/*
 
-    [ -d "${DOCKER_STORE}" ] && sudo rm -rf "${DOCKER_STORE}"/*
+    # Kill docker and wait for it to die.
+    while [ -f ${DOCKER_PID} ] && sudo kill -0 "$(cat ${DOCKER_PID})" 2>&1 > /dev/null ; do
+        sudo kill "$(cat ${DOCKER_PID})"
+        sleep 1.0
+    done
+    [ -f ${DOCKER_PID} ] && rm -rf ${DOCKER_PID}
 
     # Start the dockerd daemon with the driver vfs in order to store the
     # container layers into vfs layers. The default storage is overlay
     # but it will not work on the target system as /var/lib/docker is
     # mounted as an overlay and overlay storage driver is not compatible
     # with overlayfs.
-    sudo /usr/bin/dockerd --storage-driver vfs --data-root "${DOCKER_STORE}" &
+    sudo dockerd --storage-driver vfs --data-root "${DOCKER_STORE}" \
+        --pidfile ${DOCKER_PID} -H unix://${DOCKER_SOCKET} &
 
-    # Wait a little before pulling to let the daemon be ready.
-    sleep 5
+    # Wait for daemon to be ready.
+    for i in {1..6}; do
+        if docker -H unix://${DOCKER_SOCKET} info; then
+            break;
+        fi
+        sleep 5
+    done
 
-    if ! sudo docker info; then
+    if ! docker -H unix://${DOCKER_SOCKET} info; then
         bbfatal "Error launching docker daemon"
     fi
 
     local name version tag
     while read -r name version tag _; do
-        if ! sudo docker pull "${name}:${version}"; then
+        if ! sudo docker -H unix://${DOCKER_SOCKET} pull "${name}:${version}"; then
             bbfatal "Error pulling ${name}"
         fi
     done < "${WORKDIR}/${MANIFEST}"
@@ -60,7 +73,8 @@ do_pull_image() {
     rm -rf "${DOCKER_STORE}/tmp"
 
     # Kill dockerd daemon after use.
-    sudo kill "$(pidof dockerd)"
+    sudo kill "$(cat ${DOCKER_PID})"
+    sudo rm -rf ${DOCKER_SOCKET} ${DOCKER_PID}
 }
 
 do_install() {
@@ -77,7 +91,7 @@ do_install() {
     cp -R "${DOCKER_STORE}"/* "${D}${localstatedir}/lib/docker/"
 }
 
-FILES_${PN} = "\
+FILES:${PN} = "\
     ${system_unitdir}/system/container-image.service \
     ${bindir}/container-image \
     ${datadir}/container-images/${MANIFEST} \
