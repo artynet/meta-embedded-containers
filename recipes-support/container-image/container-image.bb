@@ -20,6 +20,7 @@ SRC_URI = "file://container-image.service \
           "
 
 do_pull_image[nostamp] = "1"
+do_pull_image[network] = "1"
 do_package_qa[noexec] = "1"
 INSANE_SKIP_${PN}:append = "already-stripped"
 EXCLUDE_FROM_SHLIBS = "1"
