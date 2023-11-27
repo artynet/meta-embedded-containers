@@ -6,14 +6,14 @@ IMAGE_FSTYPES += "squashfs"
 
 WKS_FILE = "embedded-container.wks"
 
-IMAGE_FEATURES_append = "\
+IMAGE_FEATURES:append = "\
     debug-tweaks \
     post-install-logging \
     read-only-rootfs \
     ssh-server-dropbear \
     "
 
-IMAGE_INSTALL_append = " \
+IMAGE_INSTALL:append = " \
     container-image \
     docker \
     "
