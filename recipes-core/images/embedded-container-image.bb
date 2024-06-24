@@ -15,7 +15,7 @@ IMAGE_FEATURES_append = "\
 
 IMAGE_INSTALL_append = " \
     container-image \
-    docker \
+    docker-ce \
     "
 
 update_fstab_image() {
