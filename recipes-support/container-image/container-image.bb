@@ -14,7 +14,7 @@ inherit systemd
 SYSTEMD_SERVICE_${PN} = "container-image.service"
 SYSTEMD_AUTO_ENABLE_${PN} = "enable"
 
-RDEPENDS_${PN} += "docker bash mount-noauto"
+RDEPENDS_${PN} += "docker-ce bash mount-noauto"
 
 SRC_URI = "file://container-image.service \
            file://container-image.sh \
@@ -24,7 +24,7 @@ SRC_URI = "file://container-image.service \
 do_pull_image[nostamp] = "1"
 do_pull_image[network] = "1"
 do_package_qa[noexec] = "1"
-INSANE_SKIP:${PN} += "already-stripped"
+INSANE_SKIP_${PN}_append = "already-stripped"
 EXCLUDE_FROM_SHLIBS = "1"
 
 do_pull_image() {
@@ -33,48 +33,48 @@ do_pull_image() {
     sudo rm -rf "${DOCKER_STORE}"/*
 
     # Kill docker and wait for it to die.
-    while [ -f ${DOCKER_PID} ] && sudo kill -0 "$(cat ${DOCKER_PID})" 2>&1 > /dev/null ; do
-        sudo kill "$(cat ${DOCKER_PID})"
+    while [ -f ${DOCKER_PID} ] && sudo /bin/kill -0 "$(cat ${DOCKER_PID})" 2>&1 > /dev/null ; do
+        sudo /bin/kill "$(cat ${DOCKER_PID})"
         sleep 1.0
     done
-    [ -f ${DOCKER_PID} ] && rm -rf ${DOCKER_PID}
+    [ -f ${DOCKER_PID} ] && /bin/rm -rf ${DOCKER_PID}
 
     # Start the dockerd daemon with the driver vfs in order to store the
     # container layers into vfs layers. The default storage is overlay
     # but it will not work on the target system as /var/lib/docker is
     # mounted as an overlay and overlay storage driver is not compatible
     # with overlayfs.
-    sudo dockerd --storage-driver vfs --data-root "${DOCKER_STORE}" \
+    sudo /usr/bin/dockerd --storage-driver vfs --data-root "${DOCKER_STORE}" \
         --pidfile ${DOCKER_PID} -H unix://${DOCKER_SOCKET} &
 
     # Wait for daemon to be ready.
     for i in {1..6}; do
-        if docker -H unix://${DOCKER_SOCKET} info; then
+        if /usr/bin/docker -H unix://${DOCKER_SOCKET} info; then
             break;
         fi
         sleep 5
     done
 
-    if ! docker -H unix://${DOCKER_SOCKET} info; then
+    if ! /usr/bin/docker -H unix://${DOCKER_SOCKET} info; then
         bbfatal "Error launching docker daemon"
     fi
 
     local name version tag
     while read -r name version tag _; do
-        if ! sudo docker -H unix://${DOCKER_SOCKET} pull "${name}:${version}"; then
+        if ! sudo /usr/bin/docker -H unix://${DOCKER_SOCKET} pull "${name}:${version}"; then
             bbfatal "Error pulling ${name}"
         fi
     done < "${WORKDIR}/${MANIFEST}"
 
-    sudo chown -R "${USER}" "${DOCKER_STORE}"
+    sudo /bin/chown -R "${USER}" "${DOCKER_STORE}"
 
     # Clean temporary folders in the docker store.
-    rm -rf "${DOCKER_STORE}/runtimes"
-    rm -rf "${DOCKER_STORE}/tmp"
+    /bin/rm -rf "${DOCKER_STORE}/runtimes"
+    /bin/rm -rf "${DOCKER_STORE}/tmp"
 
     # Kill dockerd daemon after use.
-    sudo kill "$(cat ${DOCKER_PID})"
-    sudo rm -rf ${DOCKER_SOCKET} ${DOCKER_PID}
+    sudo /bin/kill "$(cat ${DOCKER_PID})"
+    sudo /bin/rm -rf ${DOCKER_SOCKET} ${DOCKER_PID}
 }
 
 do_install() {
@@ -91,7 +91,7 @@ do_install() {
     cp -R "${DOCKER_STORE}"/* "${D}${localstatedir}/lib/docker/"
 }
 
-FILES:${PN} = "\
+FILES_${PN} = "\
     ${system_unitdir}/system/container-image.service \
     ${bindir}/container-image \
     ${datadir}/container-images/${MANIFEST} \
