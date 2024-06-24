@@ -12,7 +12,7 @@ inherit systemd
 SYSTEMD_SERVICE_${PN} = "container-image.service"
 SYSTEMD_AUTO_ENABLE_${PN} = "enable"
 
-RDEPENDS_${PN} += "docker bash mount-noauto"
+RDEPENDS_${PN} += "docker-ce bash mount-noauto"
 
 SRC_URI = "file://container-image.service \
            file://container-image.sh \
@@ -27,9 +27,9 @@ EXCLUDE_FROM_SHLIBS = "1"
 do_pull_image() {
     [ -f "${WORKDIR}/${MANIFEST}" ] || bbfatal "${MANIFEST} does not exist"
 
-    [ -n "$(pidof dockerd)" ] && sudo kill "$(pidof dockerd)" && sleep 5
+    [ -n "$(pidof dockerd)" ] && sudo /bin/kill "$(pidof dockerd)" && sleep 5
 
-    [ -d "${DOCKER_STORE}" ] && sudo rm -rf "${DOCKER_STORE}"/*
+    [ -d "${DOCKER_STORE}" ] && sudo /bin/rm -rf "${DOCKER_STORE}"/*
 
     # Start the dockerd daemon with the driver vfs in order to store the
     # container layers into vfs layers. The default storage is overlay
@@ -41,13 +41,13 @@ do_pull_image() {
     # Wait a little before pulling to let the daemon be ready.
     sleep 5
 
-    if ! sudo docker info; then
+    if ! sudo /usr/bin/docker info; then
         bbfatal "Error launching docker daemon"
     fi
 
     local name version tag
     while read -r name version tag _; do
-        if ! sudo docker pull "${name}:${version}"; then
+        if ! sudo /usr/bin/docker pull --platform linux/arm "${name}:${version}"; then
             bbfatal "Error pulling ${name}"
         fi
     done < "${WORKDIR}/${MANIFEST}"
@@ -55,11 +55,11 @@ do_pull_image() {
     sudo chown -R "${USER}" "${DOCKER_STORE}"
 
     # Clean temporary folders in the docker store.
-    rm -rf "${DOCKER_STORE}/runtimes"
-    rm -rf "${DOCKER_STORE}/tmp"
+    /bin/rm -rf "${DOCKER_STORE}/runtimes"
+    /bin/rm -rf "${DOCKER_STORE}/tmp"
 
     # Kill dockerd daemon after use.
-    sudo kill "$(pidof dockerd)"
+    sudo /bin/kill "$(pidof dockerd)"
 }
 
 do_install() {
