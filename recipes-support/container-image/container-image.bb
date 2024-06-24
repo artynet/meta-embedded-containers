@@ -61,7 +61,7 @@ do_pull_image() {
 
     local name version tag
     while read -r name version tag _; do
-        if ! sudo /usr/bin/docker -H unix://${DOCKER_SOCKET} pull "${name}:${version}"; then
+        if ! sudo /usr/bin/docker -H unix://${DOCKER_SOCKET} pull --platform linux/arm "${name}:${version}"; then
             bbfatal "Error pulling ${name}"
         fi
     done < "${WORKDIR}/${MANIFEST}"
