@@ -6,16 +6,16 @@ IMAGE_FSTYPES += "squashfs"
 
 WKS_FILE = "embedded-container.wks"
 
-IMAGE_FEATURES:append = "\
+IMAGE_FEATURES_append = "\
     debug-tweaks \
     post-install-logging \
     read-only-rootfs \
     ssh-server-dropbear \
     "
 
-IMAGE_INSTALL:append = " \
+IMAGE_INSTALL_append = " \
     container-image \
-    docker \
+    docker-ce \
     "
 
 update_fstab_image() {
